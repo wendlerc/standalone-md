@@ -13,7 +13,7 @@ export PATH="/opt/homebrew/opt/ruby@3.2/bin:$PATH"
 export GEM_HOME="$HOME/.gem"
 
 # Convert the file
-ruby "$(dirname "$0")/converter_improved.rb" "$1"
+ruby "$(dirname "$0")/converter.rb" "$1"
 
 echo "✅ Conversion complete!"
 echo "📄 HTML file created: ${1/.md/.html}" 
