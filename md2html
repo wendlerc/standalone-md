@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# A simple script to convert Markdown files to HTML
+
+# Check if a file was provided
+if [ $# -eq 0 ]; then
+  echo "Usage: ./md2html <markdown_file>"
+  exit 1
+fi
+
+# Set up Ruby environment
+export PATH="/opt/homebrew/opt/ruby@3.2/bin:$PATH"
+export GEM_HOME="$HOME/.gem"
+
+# Convert the file
+ruby "$(dirname "$0")/converter_improved.rb" "$1"
+
+echo "✅ Conversion complete!"
+echo "📄 HTML file created: ${1/.md/.html}" 
