@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mup</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2em;
+    }
+    pre {
+      background: #f6f8fa;
+      padding: 1em;
+      border-radius: 5px;
+      overflow-x: auto;
+      margin: 1.5em 0;
+    }
+    code {
+      font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+      background: #f6f8fa;
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+      font-size: 85%;
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: 92%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.5em;
+      margin-bottom: 0.5em;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    p { margin: 1em 0; }
+    a {
+      color: #0366d6;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    img {
+      max-width: 100%;
+      box-sizing: content-box;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1em 0;
+    }
+    table, th, td {
+      border: 1px solid #dfe2e5;
+    }
+    th, td {
+      padding: 6px 13px;
+      text-align: left;
+    }
+    tr:nth-child(even) {
+      background-color: #f6f8fa;
+    }
+    blockquote {
+      margin: 0;
+      padding: 0 1em;
+      color: #6a737d;
+      border-left: 0.25em solid #dfe2e5;
+    }
+    ul, ol {
+      padding-left: 2em;
+    }
+    /* Syntax highlighting styles */
+    .highlight .c, .highlight .cm, .highlight .c1, .highlight .cs { color: #6a737d; } /* Comment */
+    .highlight .k, .highlight .kc, .highlight .kd, .highlight .kn, .highlight .kp, .highlight .kr, .highlight .kt { color: #d73a49; } /* Keyword */
+    .highlight .s, .highlight .sb, .highlight .sc, .highlight .sd, .highlight .s2, .highlight .s1 { color: #032f62; } /* String */
+    .highlight .na, .highlight .bp { color: #005cc5; } /* Name.Attribute, Name.Builtin.Pseudo */
+    .highlight .nb, .highlight .nc, .highlight .nf { color: #6f42c1; } /* Name.Builtin, Name.Class, Name.Function */
+    .highlight .no, .highlight .nd, .highlight .ni, .highlight .ne, .highlight .nv { color: #e36209; } /* Name.Constant, Name.Decorator, etc */
+    .highlight .o, .highlight .ow { color: #d73a49; } /* Operator, Operator.Word */
+    .highlight .m, .highlight .mf, .highlight .mh, .highlight .mi, .highlight .mo { color: #005cc5; } /* Literal.Number */
+  </style>
+  <!-- MathJax for rendering math equations -->
+  <script type="text/javascript" id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
+</head>
+<body>
+  <h1 id="maximal-update-parametrisation-learning-rate-scaling-rules-for-adam">Maximal update parametrisation learning rate scaling rules for ADAM</h1>
+<p><strong>Chris Wendler,</strong>
+<strong>11/21/24</strong></p>
+
+<p>This material is evolving. If you have questions or suggestions feel free to reach out to <a href="https://wendlerc.github.io/">me</a>. More <a href="https://www.notion.so/Deep-learning-study-group-zero-shot-hyperparameter-transfer-3a0c41098d194238a380de9cd20cd735">here</a>.</p>
+
+<h1 id="recap">Recap</h1>
+
+<p>Let’s start by recapitulating the ADAM update $\Delta W$and the spectral condition that we are trying to achieve.</p>
+
+<h2 id="spectral-condition">Spectral condition</h2>
+
+<p>From the <a href="https://arxiv.org/abs/2310.17813">spectral condition for feature learning paper</a> we know that in order to achieve feature learning our weight updates $\Delta W$ have to satisfy Condition 1:</p>
+
+<p><img src="./mup/image.png" alt="image.png" /></p>
+
+<h2 id="adam-step-delta-w">ADAM step (\(\Delta W\))</h2>
+
+<p>From the ADAM paper:</p>
+
+<p><img src="./mup/image%201.png" alt="image.png" /></p>
+
+\[\text{(their } \theta \text{ is our } W\text{)}\]
+
+<p>Thus, we have</p>
+
+\[\Delta W = \alpha \cdot \widehat{m}_t/(\sqrt{\widehat{v}_t}+\epsilon).\]
+
+<h1 id="derivation-of-the-learning-rate-scaling-factor">Derivation of the learning rate scaling factor</h1>
+
+<h2 id="ansatz">Ansatz</h2>
+
+<ol>
+  <li>In order to make the analysis of the order (\(\Theta\) notation) of the spectral norm of \(\Delta W\) easier, we are going to consider the limit of t going towards infinity.</li>
+  <li>We are going to show that the resulting \(\Delta W\) has entries of order \(\Theta(1)\), which makes it easy to compute the order of \(\Delta W\)’s Frobenius norm.</li>
+  <li>By applying Lemma 1 (from Appendix B from the <a href="https://arxiv.org/abs/2310.17813">spectral condition for feature learning paper</a>) we obtain (as width goes to infinity) that the order of \(\Delta W\)’s Frobenius norm and the order of its spectral norm are equal. Lemma 1:</li>
+</ol>
+
+<p><img src="./mup/image%202.png" alt="image.png" /></p>
+
+<p><strong>Intuition: \(\|\Delta W\|_2^2 = tr(\Delta W \Delta W^T) = \sum_i \sigma_i^2\)</strong> (follows from trace rules). Thus, \(\frac{\|\Delta W\|_2^2}{\|\Delta W\|_*^2} = 1 + \underbrace{\sum_{k=2}^n \frac{\sigma_k^2}{\sigma_1^2}}_{\Theta(1)\text{ for }n\to\infty}\).</p>
+
+<p>Importantly, once we have the order of the spectral norm of \(\Delta W\), we can simply set the learning rate such that Condition 1 is satisfied.</p>
+
+<h2 id="taking-the-limit-in-the-number-of-steps">Taking the limit in the number of steps</h2>
+
+<p>Recall</p>
+
+\[\begin{aligned}
+&amp; m_t = \beta_1 m_{t-1} + (1 - \beta_1) g_t \\
+&amp; v_t = \beta_2 v_{t-1} + (1 - \beta_2) g_t^2 \\
+&amp;\widehat{m}_t = m_t / (1 - \beta_1^t)\\
+&amp;\widehat{v}_t = v_t / (1 - \beta_2^t)\\
+&amp;\Delta W = \alpha \cdot \widehat{m}_t/(\sqrt{\widehat{v}_t}+\epsilon).
+\end{aligned}\]
+
+\[\text{For }t\to\infty \text{ both } \widehat{m}_t \to m_t \text{ and } \widehat{v}_t \to v_t \text{ because } \beta_1, \beta_2 \in [0, 1).\]
+
+<p>Therefore, we only need to consider \(m_t\) and \(v_t\). For taking the limit \(t \to \infty\) it is easier to work with their closed form, which can be obtained via telescoping:</p>
+
+\[\begin{aligned}
+m_t &amp;= \beta_1 (\beta_1 m_{t-2} + (1-\beta_1)g_{t-1}) + (1-\beta_1)g_t\\
+&amp;= \beta_1^2 m_{t-2} + \beta^1_1 (1 - \beta_1) g_{t-1} + \beta^0_1 (1 - \beta_1) g_t \\
+&amp;\dots \\
+&amp;= (1-\beta_1) \sum_{i=1}^t \beta_1^{t-i} g_i \\
+\end{aligned}\]
+
+<p>The same can be done for \(v_t\), which results in</p>
+
+\[\begin{aligned}
+v_t &amp;= (1-\beta_2) \sum_{i=1}^t \beta_2^{t-i} g_i^2.
+\end{aligned}\]
+
+<p>Both \(m_t\) and \(v_t\) are geometric series of i.i.d. random variables.</p>
+
+<h3 id="lemma-2-the-limit-of-a-geometric-series-of-iid-random-variables">Lemma 2. The limit of a geometric series of i.i.d. random variables</h3>
+
+\[\text{Let } X_1, \dots, X_n \text{ be i.i.d. with } \mathbb{E}[X_i] = \mu. \text{ Then, } \lim_{n \to \infty} \sum_{i = 1}^n \beta^i X_i = \mu/(1-\beta).\]
+
+<p><strong>Proof</strong></p>
+
+<p>In order to proof this we are going to insert an extra zero, which will simplify the analysis:</p>
+
+\[\begin{aligned}
+\sum_{i = 1}^n \beta^i X_i &amp;= \sum_{i = 1}^n \beta^i (X_i - \mathbb{E}[X_i] + \mathbb{E}[X_i])\\
+&amp;= \sum_{i = 1}^n \beta^i (X_i - \mathbb{E}[X_i]) + \sum_{i = 1}^n \beta^{i}\mathbb{E}[X_i].
+\end{aligned}\]
+
+<p>The <strong>second term</strong> now becomes</p>
+
+\[\begin{aligned}
+\sum_{i = 1}^n \beta^{i}\mathbb{E}[X_i] &amp;= \mu \frac{1 - \beta^{n+1}}{1 - \beta}.
+\end{aligned}\]
+
+<p>which in the limit is</p>
+
+\[\lim_{n \to \infty} \mu \frac{1 - \beta^{n+1}}{1 - \beta} = \frac{\mu}{1- \beta}.\]
+
+<p>The <strong>first term</strong> now is a sum of i.i.d. variables with zero mean,</p>
+
+\[\text{i.e., }Y_i = \beta^i (X_i - \mathbb{E}[X_i]) \text{ with } \mathbb{E}[Y_i] = 0.\]
+
+<p>Thus, by applying the <a href="https://en.wikipedia.org/wiki/Law_of_large_numbers">law of large numbers</a> we obtain that the first term converges to zero (in probability). This concludes the proof</p>
+
+\[\lim_{n \to \infty} \sum_{i = 1}^n \beta^i X_i = 0 + \mu/(1-\beta).\]
+
+<h3 id="back-to-adam">Back to Adam</h3>
+
+<p>Applying our Lemma 2 to \(m_t\) and \(v_t\) for \(t \to \infty\) results in</p>
+
+\[\begin{aligned}
+m &amp;= \lim_{t \to \infty} m_t = \mathbb{E}[g],\\
+v &amp;= \lim_{t \to \infty} v_t = \mathbb{E}[g^2] = Var[g] + \mathbb{E}[g]^2,
+\end{aligned}
+\\
+\text{and }\Delta W \text{ approaches }\alpha \frac{m}{\sqrt{v} + \epsilon}.\]
+
+<p>Notice that while $m$ and $v$ are matrices all operations were always applied entry-wise.</p>
+
+<h2 id="frobenius-norm-trick">Frobenius norm “trick”</h2>
+
+<p>Now, assuming that the entry-wise expectation and variance of the gradients are of constant order</p>
+
+\[\mathbb{E}[g_{ij}] = \mu_{ij} = \Theta(1) \text{ and } 
+Var[g_{ij}] = \sigma_{ij}^2 = \Theta(1),\]
+
+<p>it is straightforward to compute the order of the Frobenius norm</p>
+
+\[\|\Delta W\|_2 = \Theta(\sqrt{\alpha ^2 n_{\ell} n_{\ell-1}}).\]
+
+<p>Thus, by Lemma 1 from above the spectral norm also is of the same order</p>
+
+\[\|\Delta W\|_* = \Theta(\sqrt{\alpha ^2 n_{\ell} n_{\ell-1}}) = \Theta(\alpha \sqrt{n_{\ell} n_{\ell-1}}).\]
+
+<p><strong>Note:</strong> I am not sure how realistic this assumption is. I mainly needed it to get the matching lower bound for the Frobenius norm. The upper bound can be done also without this assumption by using Jensen’s inequality. I would be grateful about some input here.</p>
+
+<h2 id="spectral-norms-and-scaling-factors">Spectral norms and scaling factors</h2>
+
+<h3 id="hidden-layers">Hidden layers</h3>
+
+<p>Let’s consider the typical case in which \(n_{\ell} = n_{\ell - 1} = n\). As a result, we have \(\Delta W = \Theta(\alpha n)\), which is required to be \(\Theta(1)\) by Condition 1. Therefore, \(\alpha\) must be in \(\Theta(\frac{1}{n})\).</p>
+
+<h3 id="input-embedding">Input embedding</h3>
+
+<p>Let’s consider the typical case in which \(n_{\ell} = n\) and \(n_{\ell - 1} = c\) (some constant). As a result, we have \(\Delta W = \Theta(\alpha \sqrt{cn}) = \Theta(\alpha \sqrt{n})\), which is required to be \(\Theta(\sqrt{n})\) by Condition 1. Therefore, \(\alpha\) must be in \(\Theta(1)\).</p>
+
+<h3 id="output-embedding">Output embedding</h3>
+
+<p>Let’s consider the typical case in which \(n_{\ell} = c\)  and \(n_{\ell - 1} = n\). As a result, we have \(\Delta W = \Theta(\alpha \sqrt{cn}) = \Theta(\alpha \sqrt{n})\), which is required to be \(\Theta(\frac{1}{\sqrt{n}})\) by Condition 1. Therefore, \(\alpha\) must be in \(\Theta(\frac{1}{n})\).</p>
+
+<h3 id="sanity-check">Sanity check</h3>
+
+<p>Comparing our results to Table 3 from <a href="https://arxiv.org/abs/2203.03466">tensor programs V</a> (in which fan_in = n) looks like we derived the same results:</p>
+
+<p><img src="./mup/image%203.png" alt="image.png" /></p>
+
+<h1 id="acknowledgements">Acknowledgements</h1>
+
+<p>I want to thank Ilia Badanin and Eugene Golikov for helping me with this proof.</p>
+
+</body>
+</html>
