@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>rope</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2em;
+    }
+    pre {
+      background: #f6f8fa;
+      padding: 1em;
+      border-radius: 5px;
+      overflow-x: auto;
+      margin: 1.5em 0;
+    }
+    code {
+      font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+      background: #f6f8fa;
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+      font-size: 85%;
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: 92%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.5em;
+      margin-bottom: 0.5em;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    p { margin: 1em 0; }
+    a {
+      color: #0366d6;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    img {
+      max-width: 100%;
+      box-sizing: content-box;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1em 0;
+    }
+    table, th, td {
+      border: 1px solid #dfe2e5;
+    }
+    th, td {
+      padding: 6px 13px;
+      text-align: left;
+    }
+    tr:nth-child(even) {
+      background-color: #f6f8fa;
+    }
+    blockquote {
+      margin: 0;
+      padding: 0 1em;
+      color: #6a737d;
+      border-left: 0.25em solid #dfe2e5;
+    }
+    ul, ol {
+      padding-left: 2em;
+    }
+    /* Syntax highlighting styles */
+    .highlight .c, .highlight .cm, .highlight .c1, .highlight .cs { color: #6a737d; } /* Comment */
+    .highlight .k, .highlight .kc, .highlight .kd, .highlight .kn, .highlight .kp, .highlight .kr, .highlight .kt { color: #d73a49; } /* Keyword */
+    .highlight .s, .highlight .sb, .highlight .sc, .highlight .sd, .highlight .s2, .highlight .s1 { color: #032f62; } /* String */
+    .highlight .na, .highlight .bp { color: #005cc5; } /* Name.Attribute, Name.Builtin.Pseudo */
+    .highlight .nb, .highlight .nc, .highlight .nf { color: #6f42c1; } /* Name.Builtin, Name.Class, Name.Function */
+    .highlight .no, .highlight .nd, .highlight .ni, .highlight .ne, .highlight .nv { color: #e36209; } /* Name.Constant, Name.Decorator, etc */
+    .highlight .o, .highlight .ow { color: #d73a49; } /* Operator, Operator.Word */
+    .highlight .m, .highlight .mf, .highlight .mh, .highlight .mi, .highlight .mo { color: #005cc5; } /* Literal.Number */
+  </style>
+  <!-- MathJax for rendering math equations -->
+  <script type="text/javascript" id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
+</head>
+<body>
+  <h1 id="notes-on-rotary-positional-embeddings-rope">Notes on rotary positional embeddings (RoPE)</h1>
+<p><strong>Chris Wendler,</strong>
+<strong>08/19/25</strong></p>
+
+<h2 id="summary">Summary</h2>
+
+<p>Let 
+\(R^{d}_{\Theta, m} = 
+\begin{pmatrix}
+\cos{m\theta_1} &amp; -\sin{m\theta_1} &amp; 0 &amp; 0 &amp; \cdots &amp; 0 &amp; 0 \\
+\sin{m\theta_1} &amp; \cos{m\theta_1} &amp; 0 &amp; 0 &amp; \cdots &amp; 0 &amp; 0 \\
+0 &amp; 0 &amp; \cos{m\theta_2} &amp; -\sin{m\theta_2} &amp; \cdots &amp; 0 &amp; 0 \\
+0 &amp; 0 &amp; \sin{m\theta_2} &amp; \cos{m\theta_2} &amp; \cdots &amp; 0 &amp; 0 \\
+0 &amp; 0 &amp; 0 &amp; 0 &amp; \cdots &amp; \cos{m\theta_{d/2}} &amp; -\sin{m\theta_{d/2}} \\
+0 &amp; 0 &amp; 0 &amp; 0 &amp; \cdots &amp; \sin{m\theta_{d/2}} &amp; \cos{m\theta_{d/2}} \\
+\end{pmatrix}.\)</p>
+
+<p>Then, we update keys using \(k_n = R^{d}_{\Theta, n} W_k x_n\) 
+and queries using \(q_m = R^{d}_{\Theta, m} W_q x_m\).</p>
+
+<p>Their dot product simplifies to (due to composition of rotation matrices)
+\(q_m^T k_n = x_m^T W_q^T R^{d}_{\Theta, n - m} W_k x_n.\)</p>
+
+<p>For more details, check out the <a href="https://arxiv.org/abs/2104.09864">RoPE paper</a>.</p>
+
+<h2 id="position-only-attention-heads">Position-only attention heads</h2>
+
+<p>Given positional information only enters via RoPE, how can an attention head be achieved that solely relies on positional information?</p>
+
+<h3 id="previous-token-heads">Previous token heads</h3>
+
+<p>Let’s try to implement a simple previous token head using RoPE. This head should attend mostly to the previous token. E.g., \(q_{n+1}\) should mostly match with \(k_n\) and so on.</p>
+
+<p>Their dot product simplifies to 
+\(q_{n+1}^T k_n = x_{n+1}^T W_q^T R^{d}_{\Theta, -1} W_k x_n.\)</p>
+
+<p>Without assumptions I don’t see a straightforward way to achieve this previous token head. However, after discussing with my friend Jakob Heiss, we had the idea that we could assume that the model either has a bias term (one of the components of \(x_i \in \mathbb{R}^d\) is a constant value) either because that bias term is hardcoded or because the previous layers have learned to create one.</p>
+
+<p>Thus, w.l.o.g. let’s assume that for each \(i\) we have \(x_{i1} = 1\). Now, this can be used to create keys and queries that solely depend on the positional information.</p>
+
+<p>Then, we could set \(W_k\) such that, for all \(i\), \(W_k x_{i} = (1, 0, 1, 0, \cdots, 1, 0)^T\). That is, 
+\(W_{kij} := \begin{cases}
+1 &amp;&amp; \text{if } j = 1 \text{ and } i \text{ is even,}\\
+0 &amp;&amp; \text{else.}
+\end{cases}\)</p>
+
+<p>\(W_q\) such that \(W_q x_{n+1}\) matches \(R^{d}_{\Theta, -1} (1, 0, 1, 0, \cdots, 1, 0)^T = (\cos{\theta_1}, -\sin{\theta_1}, \cdots, \cos{\theta_{d/2}}, -\sin{\theta_{d/2}})\) to maximize the dot product with \(k_{n}\). Additionally, we can add a temperature parameter to control how sharp we want the attention head to be. Both can be achieved by setting \(W_q := \alpha R^{d}_{\Theta, -1} W_k,\) in which \(\alpha &gt; 0\) is a temperature parameter.</p>
+
+<p>As a result, for \(q_{n+1}\) we have that \(q_{n+1}^T k_n = (d/2)\alpha\) and \(q_{n+1}^T k_m = \alpha \sum_{\ell = 1}^{d/2} \cos{((m - n)\theta_{\ell})} &lt; (d/2)\alpha\), for \(m &lt; n\). Thus, for large \(\alpha\) the softmax operation in the attention layer should mostly select the key at position \(n\). (TODO: here would be nice to have a better argument.)</p>
+
+</body>
+</html>

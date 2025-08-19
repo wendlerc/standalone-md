@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>rlhf</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2em;
+    }
+    pre {
+      background: #f6f8fa;
+      padding: 1em;
+      border-radius: 5px;
+      overflow-x: auto;
+      margin: 1.5em 0;
+    }
+    code {
+      font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+      background: #f6f8fa;
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+      font-size: 85%;
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: 92%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.5em;
+      margin-bottom: 0.5em;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    p { margin: 1em 0; }
+    a {
+      color: #0366d6;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    img {
+      max-width: 100%;
+      box-sizing: content-box;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1em 0;
+    }
+    table, th, td {
+      border: 1px solid #dfe2e5;
+    }
+    th, td {
+      padding: 6px 13px;
+      text-align: left;
+    }
+    tr:nth-child(even) {
+      background-color: #f6f8fa;
+    }
+    blockquote {
+      margin: 0;
+      padding: 0 1em;
+      color: #6a737d;
+      border-left: 0.25em solid #dfe2e5;
+    }
+    ul, ol {
+      padding-left: 2em;
+    }
+    /* Syntax highlighting styles */
+    .highlight .c, .highlight .cm, .highlight .c1, .highlight .cs { color: #6a737d; } /* Comment */
+    .highlight .k, .highlight .kc, .highlight .kd, .highlight .kn, .highlight .kp, .highlight .kr, .highlight .kt { color: #d73a49; } /* Keyword */
+    .highlight .s, .highlight .sb, .highlight .sc, .highlight .sd, .highlight .s2, .highlight .s1 { color: #032f62; } /* String */
+    .highlight .na, .highlight .bp { color: #005cc5; } /* Name.Attribute, Name.Builtin.Pseudo */
+    .highlight .nb, .highlight .nc, .highlight .nf { color: #6f42c1; } /* Name.Builtin, Name.Class, Name.Function */
+    .highlight .no, .highlight .nd, .highlight .ni, .highlight .ne, .highlight .nv { color: #e36209; } /* Name.Constant, Name.Decorator, etc */
+    .highlight .o, .highlight .ow { color: #d73a49; } /* Operator, Operator.Word */
+    .highlight .m, .highlight .mf, .highlight .mh, .highlight .mi, .highlight .mo { color: #005cc5; } /* Literal.Number */
+  </style>
+  <!-- MathJax for rendering math equations -->
+  <script type="text/javascript" id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
+</head>
+<body>
+  <h1 id="policy-gradient-ascent-for-policies-parametrized-by-llms">Policy gradient ascent for policies parametrized by LLMs</h1>
+<p><strong>Chris Wendler,</strong>
+<strong>12/05/23</strong></p>
+
+<p>Let \(\Sigma\) be the vocabulary of a LLM, i.e., the set of tokens. 
+Let’s consider the following summarization task: given a text \(x\) provide a summary \(y \in \Sigma^{\leq 200}\), in which \(\Sigma^{\leq 200}\) denotes the set of sequences that are shorter than \(200\) tokens.
+For the sake of simplicity let’s assume that we have a reward function \(r_{seq}(x, y)\) that rates complete summaries.</p>
+
+<p>When using RLHF to align LLMs to me it was sometimes not clear what’s the state space and what’s the action space. In particular, whether to use \(A = \Sigma$ or $A = \Sigma^{\leq 200}\) as the set of actions. The state space in both cases can be \(S = \Sigma^*\).</p>
+
+<p>To answer this question, it suffices to consider <a href="https://spinningup.openai.com/en/latest/spinningup/rl_intro3.html#deriving-the-simplest-policy-gradient">the vanilla policy gradient method</a> that updates the policy using the following policy gradient \(\nabla_{\theta} J(\pi_{\theta}) = \nabla_{\theta} E_{\tau \sim \pi_{\theta}}[R(\tau)] \approx \frac{1}{\mid D\mid} \sum_{\tau \in D} \sum_{t=0}^T \nabla_{\theta} \log \pi_{\theta}(a_t \mid s_t) R(\tau) = \hat g,\)
+in which \(J\) denotes the performance of the policy \(\pi_{\theta}\), \(\tau\) is used for trajectories, \(R(\tau)\) is the reward of a trajectory, \(D\) is the set of sampled trajectories.</p>
+
+<h1 id="choosing-the-next-token-as-an-action">Choosing the next-token as an action</h1>
+
+<p>We have \(S = \Sigma^*, A = \Sigma\), importantly, state-transitions are deterministic. Let \(s \in S\) be a text that we want to summarize, then performing an action \(a \in A\) moves us to the state \(sa\) (where we concatenated the sequence \(s\) and token \(a\)). Formally we have \(\Delta(s, a) := sa\). As distribution over the initial state \(s_0\) we use the uniform distribution over a corpus of texts that we want to summarize. In this setting we parametrize the policy using a copy of our pretrained (and instruction tuned) LLM \(\pi_{\theta}(a \mid s) = p_{\theta}(a \mid s)\). We are in a finite-horizon setting and set $T$ such that text \(s_0\) together with a \(200\) token response fits into the context length of our LLM.</p>
+
+<p>In order to define \(R(\tau)\) that is required for the policy gradient, we need to define a reward \(r: S \times A \to [0, \infty): (s, a) \mapsto \begin{cases} r_{seq}(x, y) &amp; \text{if }a \text{ is end-of-sequence token,} \\
+0 &amp; \text{else,} \end{cases}\) 
+where we have to split \(sa = xy\) into prompt $x$ and response \(y\) to evaluate \(r_{seq}\).</p>
+
+<p>Now, for a trajectory \(\tau = (s_0, a_0, \dots, s_{T-1}, a_{T-1})\) the reward \(R(\tau)\) is defined, namely, \(R(\tau) = \sum_{t = 0}^{T-1} r(s_t, a_t).\) Note that, in RLHF papers \(s_0\) is usually denoted as \(x\) and the resulting summary as \(y = a_0a_1\dots a_{T-1}\).</p>
+
+<p>Finally, \(\nabla_{\theta} \log \pi_{\theta}(a_t \mid s_t)\) is nicely defined via the backward pass through the log-probability of the token \(a_t\). Putting everything back together gives us a policy gradient that we can use to train \(\pi_{\theta}\).</p>
+
+<h1 id="writing-the-whole-summary-as-an-action">Writing the whole summary as an action</h1>
+
+<p>We have \(S = \Sigma^*, A = \Sigma^{\leq 200}\), importantly, state-transitions are deterministic. Let \(s \in S\) be a text that we want to summarize, then performing an action \(a \in A\) moves us to the state \(sa\) (where we concatenated the sequences \(s\) and \(a\)). Formally we have \(\Delta(s, a) := sa\). As distribution over the initial state \(s_0\) we use the uniform distribution over a corpus of texts that we want to summarize. In this setting we parametrize the policy using a copy of our pretrained (and instruction tuned) LLM \(\pi_{\theta}(a \mid s) =  \prod_{i=1}^m p_{\theta}(a_i \mid s a_{&lt;i}),\) in which \(a = a_1 a_2 \dots a_m\) and \(a_{&lt;i}\) denotes \(a_1\dots a_{i-1}\) (\(a_{&lt;1}\) is the empty sequence). We are again in a finite-horizon setting, with \(T=1\). This time we can use \(r_{seq}\) directly \(r(s,a) = r_{seq}(s, a)\). Plugging everything into \(\hat g\), we get 
+\(\begin{aligned}
+\hat g &amp;= \frac{1}{\mid D\mid} \sum_{\tau \in D} \nabla_{\theta} \log \pi_{\theta}(a \mid s_0) R(\tau) \\
+&amp;= \frac{1}{\mid D\mid} \sum_{\tau \in D} \sum_{i=1}^m \nabla_{\theta} \log p_{\theta}(a_i \mid s_0 a_{&lt;i}) R(\tau) 
+\end{aligned},\)
+which is an update identical to the one in the previous setting where sampling the next token was the action.</p>
+
+</body>
+</html>
