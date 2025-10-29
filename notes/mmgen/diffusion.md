@@ -257,4 +257,145 @@ Discretizing and conditioning yields the same variance expression:
   - Learn or clamp it (improved DDPM),
   - Set it to \(0\) for deterministic sampling (DDIM).
 
+Sure — here’s a clean, copy-ready **Markdown** version of the full explanation:
+
+---
+
+# Derivation by Reparameterization — Explained
+
+### 1. Starting point: two Gaussian transitions
+
+We know two conditional distributions:
+
+[
+x_{t-1} | x_0 \sim \mathcal{N}\big(\sqrt{\bar\alpha_{t-1}} x_0,; (1-\bar\alpha_{t-1}) I\big)
+]
+
+[
+x_t | x_{t-1} \sim \mathcal{N}\big(\sqrt{\alpha_t} x_{t-1},; (1-\alpha_t) I\big)
+]
+
+Both are linear Gaussians with independent noise.
+We can reparameterize them as:
+
+[
+x_{t-1} = \sqrt{\bar\alpha_{t-1}} x_0 + \sqrt{1-\bar\alpha_{t-1}}, z, \quad z \sim \mathcal{N}(0,I)
+]
+[
+x_t = \sqrt{\alpha_t} x_{t-1} + \sqrt{1-\alpha_t}, z', \quad z' \sim \mathcal{N}(0,I)
+]
+
+where (z, z') are IID standard Gaussians.
+
+---
+
+### 2. Substitute (x_{t-1}) into the expression for (x_t)
+
+Plug in the first equation into the second:
+
+[
+x_t = \sqrt{\alpha_t}(\sqrt{\bar\alpha_{t-1}} x_0 + \sqrt{1-\bar\alpha_{t-1}}, z) + \sqrt{1-\alpha_t}, z'
+]
+
+Simplify:
+
+[
+x_t = \sqrt{\alpha_t \bar\alpha_{t-1}}, x_0 + \sqrt{\alpha_t (1-\bar\alpha_{t-1})}, z + \sqrt{1-\alpha_t}, z'
+]
+
+Since (\bar\alpha_t = \alpha_t \bar\alpha_{t-1}):
+
+[
+x_t = \sqrt{\bar\alpha_t} x_0 + \big(\sqrt{\alpha_t - \bar\alpha_t}, z + \sqrt{1-\alpha_t}, z'\big)
+]
+
+---
+
+### 3. Combine the noise terms by rotational reparameterization
+
+The term in parentheses is a *linear combination of two IID Gaussian noises* (z, z'):
+
+[
+\underbrace{\sqrt{\alpha_t - \bar\alpha_t}, z + \sqrt{1-\alpha_t}, z'}_{=: \sigma_t z''}
+]
+
+Because (z) and (z') are independent standard Gaussians, this linear combination is again Gaussian:
+
+[
+z'' = \frac{\sqrt{\alpha_t - \bar\alpha_t}, z + \sqrt{1-\alpha_t}, z'}{\sigma_t},
+\quad \sigma_t^2 = (\alpha_t - \bar\alpha_t) + (1-\alpha_t) = 1 - \bar\alpha_t
+]
+
+Hence:
+
+[
+x_t = \sqrt{\bar\alpha_t} x_0 + \sigma_t z'', \quad z'' \sim \mathcal{N}(0, I)
+]
+
+---
+
+### 4. Rotational invariance and completing the transformation
+
+Since ((z, z')) are IID Gaussian, their joint distribution is *rotationally symmetric* in (\mathbb{R}^2).
+That means we can define a rotation matrix (R_t) such that:
+
+[
+\begin{bmatrix} z'' \ z''' \end{bmatrix}
+= R_t \begin{bmatrix} z \ z' \end{bmatrix}
+]
+
+We already know the first row of (R_t) (it gives us (z'')):
+
+[
+R_t[0,:] = \left[\frac{\sqrt{\alpha_t - \bar\alpha_t}}{\sigma_t}, \frac{\sqrt{1-\alpha_t}}{\sigma_t}\right]
+]
+
+To make (R_t) a valid rotation matrix, its second row must make the whole matrix orthogonal, so:
+
+[
+R_t = \begin{bmatrix}
+\frac{\sqrt{\alpha_t - \bar\alpha_t}}{\sigma_t} & \frac{\sqrt{\beta_t}}{\sigma_t} \
+-\frac{\sqrt{\beta_t}}{\sigma_t} & \frac{\sqrt{\alpha_t - \bar\alpha_t}}{\sigma_t}
+\end{bmatrix}
+]
+where (\beta_t = 1 - \alpha_t).
+
+Then we can invert this relation using (R_t^\top = R_t^{-1}):
+
+[
+\begin{bmatrix} z \ z' \end{bmatrix} =
+\begin{bmatrix}
+\frac{\sqrt{\alpha_t - \bar\alpha_t}}{\sigma_t} & -\frac{\sqrt{\beta_t}}{\sigma_t} \
+\frac{\sqrt{\beta_t}}{\sigma_t} & \frac{\sqrt{\alpha_t - \bar\alpha_t}}{\sigma_t}
+\end{bmatrix}
+\begin{bmatrix} z'' \ z''' \end{bmatrix}
+]
+
+---
+
+### 5. Rewriting both equations in reparameterized form
+
+Now that we can express (z, z') in terms of (z'', z'''), we plug them back into both forward equations and simplify:
+
+[
+x_t = \sqrt{\bar\alpha_t}x_0 + \sigma_t z''
+]
+[
+x_{t-1} = \tilde{\mu}_t(x_t, x_0) - \tilde{\sigma}_t z'''
+]
+
+These are the canonical **forward** and **backward reparameterizations** used in DDPM and DDIM derivations.
+
+---
+
+### 🧠 Intuitive summary
+
+* (x_{t-1}, x_t) depend on two independent Gaussian noises (z, z').
+* Because Gaussians are rotationally symmetric, we can rotate ((z, z')) into a new pair ((z'', z''')) without changing their joint distribution.
+* This gives us a cleaner parameterization: one noise variable (z'') for the *forward* process and another (z''') for the *reverse* process.
+* The proof shows how to *construct that rotation explicitly*.
+
+---
+
+Would you like me to add the derivation of (\tilde{\mu}_t(x_t, x_0)) and (\tilde{\sigma}_t^2) at the end in the same format?
 
