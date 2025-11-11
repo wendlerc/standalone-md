@@ -17,5 +17,6 @@ Chris Wendler
 [3] Deepseek-VL2; Zhiyu Wu et al.; https://arxiv.org/abs/2412.10302
 [4] Idefics; HuggingfaceM4; https://huggingface.co/HuggingFaceM4/idefics2-8b-base
 [5] Controlling Latent Diffusion Using Latent CLIP; Jason Becker, Chris Wendler, Peter Baylies, Robert West, Christian Wressnegger; https://arxiv.org/abs/2503.08455
+[6] Play pong simulated by a small frame-autoregressive video transformer I trained using rectified flow matching, https://wendlerc.github.io/resources/pong.html
 
 
