@@ -12,3 +12,10 @@ Beyond that, DeepMind is uniquely positioned for conducting this type of researc
 Best,
 
 Chris Wendler
+[1] One-Step is Enough: Sparse Autoencoders for Text-to-Image Diffusion Models; Viacheslav Surkov*, Chris Wendler*, Antonio Mari, Mikhail Terekhov, Justin Deschenaux, Robert West, Caglar Gulcehre, David Bau, Project page: https://sdxl-unbox.epfl.ch/; Paper: https://arxiv.org/abs/2410.22366 
+[2] RenderedText; Chris Wendler, Gambot, LAION and Stability AI; https://huggingface.co/datasets/wendlerc/RenderedText
+[3] Deepseek-VL2; Zhiyu Wu et al.; https://arxiv.org/abs/2412.10302
+[4] Idefics; HuggingfaceM4; https://huggingface.co/HuggingFaceM4/idefics2-8b-base
+[5] Controlling Latent Diffusion Using Latent CLIP; Jason Becker, Chris Wendler, Peter Baylies, Robert West, Christian Wressnegger; https://arxiv.org/abs/2503.08455
+
+
