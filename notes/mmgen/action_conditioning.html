@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>action_conditioning</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2em;
+    }
+    pre {
+      background: #f6f8fa;
+      padding: 1em;
+      border-radius: 5px;
+      overflow-x: auto;
+      margin: 1.5em 0;
+    }
+    code {
+      font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+      background: #f6f8fa;
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+      font-size: 85%;
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: 92%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.5em;
+      margin-bottom: 0.5em;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    p { margin: 1em 0; }
+    a {
+      color: #0366d6;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    img {
+      max-width: 100%;
+      box-sizing: content-box;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1em 0;
+    }
+    table, th, td {
+      border: 1px solid #dfe2e5;
+    }
+    th, td {
+      padding: 6px 13px;
+      text-align: left;
+    }
+    tr:nth-child(even) {
+      background-color: #f6f8fa;
+    }
+    blockquote {
+      margin: 0;
+      padding: 0 1em;
+      color: #6a737d;
+      border-left: 0.25em solid #dfe2e5;
+    }
+    ul, ol {
+      padding-left: 2em;
+    }
+    /* Syntax highlighting styles */
+    .highlight .c, .highlight .cm, .highlight .c1, .highlight .cs { color: #6a737d; } /* Comment */
+    .highlight .k, .highlight .kc, .highlight .kd, .highlight .kn, .highlight .kp, .highlight .kr, .highlight .kt { color: #d73a49; } /* Keyword */
+    .highlight .s, .highlight .sb, .highlight .sc, .highlight .sd, .highlight .s2, .highlight .s1 { color: #032f62; } /* String */
+    .highlight .na, .highlight .bp { color: #005cc5; } /* Name.Attribute, Name.Builtin.Pseudo */
+    .highlight .nb, .highlight .nc, .highlight .nf { color: #6f42c1; } /* Name.Builtin, Name.Class, Name.Function */
+    .highlight .no, .highlight .nd, .highlight .ni, .highlight .ne, .highlight .nv { color: #e36209; } /* Name.Constant, Name.Decorator, etc */
+    .highlight .o, .highlight .ow { color: #d73a49; } /* Operator, Operator.Word */
+    .highlight .m, .highlight .mf, .highlight .mh, .highlight .mi, .highlight .mo { color: #005cc5; } /* Literal.Number */
+  </style>
+  <!-- MathJax for rendering math equations -->
+  <script type="text/javascript" id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
+</head>
+<body>
+  <h1 id="data-augmentation">Data augmentation</h1>
+
+<p>Given some frames with corresponding actions \((f_1, a_0), (f_2, a_1), ...\) we condition using the action of the previous frame when creating the current frame.</p>
+
+<p>Further, let \(v = f_2 - z\). And \(v(f_{2t}, a_1, t)\) the model prediction.</p>
+
+<p>Basically, one reasonable thing to encourage should be \(d(v, v(f_{2t}, a_1, t)) &lt; d(v, v(f_{2t}, a_{\neq1}, t))\).</p>
+
+<p>How to reasonably implement this?</p>
+
+<h2 id="implementation-contrastive-action-conditioning-on-the-diffusion-target">Implementation: contrastive action-conditioning on the diffusion target</h2>
+
+<p>We want the prediction with the correct action to be closer to the target than predictions with mismatched actions:
+\(d!\left(v,; v_\theta(f_{2t}, a_{\text{pos}}, t)\right)
+&lt; d!\left(v,; v_\theta(f_{2t}, a_{\text{neg}}, t)\right).\)
+Add a contrastive term to the standard diffusion loss.</p>
+
+<h3 id="base-diffusion-loss-v-pred">Base diffusion loss (v-pred)</h3>
+
+<ul>
+  <li>Sample timestep \(t\), add noise to the latent/frame to get \(f_{2t}\).</li>
+  <li>Compute the ground-truth velocity/noise target \(v\).</li>
+  <li>Predict with the correct action \(a_{\text{pos}} = a_{1}\):
+\(\hat v_{\text{pos}} = v_\theta(f_{2t}, a_{\text{pos}}, t)\).</li>
+  <li>
+    <table>
+      <tbody>
+        <tr>
+          <td>MSE loss: $$ \mathcal{L}*{\text{mse}} =</td>
+          <td>v - \hat v*{\text{pos}}</td>
+          <td>_2^2 $$ (optionally SNR-weighted).</td>
+        </tr>
+      </tbody>
+    </table>
+  </li>
+</ul>
+
+<h3 id="negatives-via-batch-shuffling">Negatives via batch shuffling</h3>
+
+<ul>
+  <li>Construct \(K\) negatives by shuffling actions within the batch (and/or mixing from a queue):
+\(a_{\text{neg}}^{(k)} \sim \text{shuffle}(a_{\text{pos}})\).</li>
+  <li>Predict for each negative:
+\(\hat v_{\text{neg}}^{(k)} = v_\theta(f_{2t}, a_{\text{neg}}^{(k)}, t)\).</li>
+</ul>
+
+<h3 id="contrastive-objective-infonce-or-triplet">Contrastive objective (InfoNCE or Triplet)</h3>
+
+<ul>
+  <li>Define per-sample distances:</li>
+  <li>
+    <table>
+      <tbody>
+        <tr>
+          <td>$$ d_{\text{pos}} =</td>
+          <td>v - \hat v_{\text{pos}}</td>
+          <td>*2^2 $$, and</td>
+        </tr>
+        <tr>
+          <td>$$ d*{\text{neg}}^{(k)} =</td>
+          <td>v - \hat v_{\text{neg}}^{(k)}</td>
+          <td>_2^2 $$.</td>
+        </tr>
+      </tbody>
+    </table>
+  </li>
+  <li>Scores: \(s_{\text{pos}} = -d_{\text{pos}}/\tau\), \(s_{\text{neg}}^{(k)} = -d_{\text{neg}}^{(k)}/\tau\) with temperature \(\tau\).</li>
+  <li>InfoNCE:
+\(\mathcal{L}*{\text{nce}} = -\log\frac{\exp(s*{\text{pos}})}{\exp(s_{\text{pos}}) + \sum_k \exp(s_{\text{neg}}^{(k)})}\).</li>
+  <li>Alternatively, Triplet with margin \(m\):
+\(\mathcal{L}*{\text{triplet}} = \max(0,, m + d*{\text{pos}} - \min_k d_{\text{neg}}^{(k)})\).</li>
+</ul>
+
+<h3 id="max-margin-marginless-variants">Max-margin (marginless) variants</h3>
+
+<p>Avoid choosing a margin by using margin-free ranking surrogates:</p>
+
+<ul>
+  <li>Zero-margin hinge (hard max-margin):
+\(\mathcal{L}*{\text{hinge-0}} = \max!\big(0,, d*{\text{pos}} - \min_k d_{\text{neg}}^{(k)}\big).\)</li>
+  <li>Softplus (smooth hinge):
+\(\mathcal{L}*{\text{soft}} = \text{softplus}!\big(d*{\text{pos}} - \min_k d_{\text{neg}}^{(k)}\big).\)</li>
+  <li>Pairwise logistic over all negatives:
+\(\mathcal{L}*{\text{logistic}} = \tfrac{1}{K}\sum_k \log!\big(1 + \exp(d*{\text{pos}} - d_{\text{neg}}^{(k)})\big).\)
+These enforce \(d_{\text{pos}} &lt; d_{\text{neg}}\) without an explicit margin. If needed, normalize distances per-batch (subtract mean, divide by std) to reduce scale sensitivity.</li>
+</ul>
+
+<h3 id="total-loss">Total loss</h3>
+
+<p>Combine with a balancing weight \(\lambda\):
+\(\mathcal{L} = \mathcal{L}*{\text{mse}} + \lambda \cdot \mathcal{L}*{\text{nce}}\)
+(or replace nce with triplet).</p>
+
+<h3 id="conclusion">Conclusion</h3>
+
+<p>When using <strong>exactly one negative action</strong>, InfoNCE simplifies to the logistic/softplus ranking loss. Specifically:</p>
+
+\[\mathcal{L}*{\text{NCE}} = \log\left(1 + \exp\left(\frac{d*{\text{pos}} - d_{\text{neg}}}{\tau}\right)\right)
+= \text{softplus}\left(\frac{d_{\text{pos}} - d_{\text{neg}}}{\tau}\right).\]
+
+<p>This is mathematically equivalent to a binary logistic loss with logit:</p>
+
+\[x = \frac{d_{\text{neg}} - d_{\text{pos}}}{\tau},\]
+
+<p>and target label \(y = 1\). Implemented using PyTorch:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">logits</span> <span class="o">=</span> <span class="p">(</span><span class="n">d_neg</span> <span class="o">-</span> <span class="n">d_pos</span><span class="p">)</span> <span class="o">/</span> <span class="n">tau</span>
+<span class="n">loss</span> <span class="o">=</span> <span class="n">F</span><span class="p">.</span><span class="nf">binary_cross_entropy_with_logits</span><span class="p">(</span><span class="n">logits</span><span class="p">,</span> <span class="n">torch</span><span class="p">.</span><span class="nf">ones_like</span><span class="p">(</span><span class="n">d_pos</span><span class="p">))</span>
+</code></pre></div></div>
+
+<p>This enforces exactly the desired inequality</p>
+
+\[d_{\text{pos}} &lt; d_{\text{neg}}\]
+
+<p>while remaining stable, differentiable, and temperature-controlled.</p>
+
+</body>
+</html>
