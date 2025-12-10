@@ -5,3 +5,4 @@
 - How far can I go today with scanning a room?
 - How far can we go today with transforming movies into scenes? I guess that's how the hobbit cave was created?
 - Instagram paper with the animated Gaussian splats might be interesting starting point for populating worlds with animated objects / grounding with animated objects.
+- Peter Baylies 3D comfy-ui app idea.
