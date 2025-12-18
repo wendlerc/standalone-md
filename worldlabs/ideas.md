@@ -7,3 +7,4 @@
 - Instagram paper with the animated Gaussian splats might be interesting starting point for populating worlds with animated objects / grounding with animated objects.
 - Peter Baylies 3D comfy-ui app idea.
 - Can we just use the same idea as in infini-point paper and generate frames by letting them attend to the same world memory that is used to make the splats?
+- Extend LLM.cpp to frame-autoregressive
